@@ -124,6 +124,36 @@ static void log_process_info(struct process *head)
 	printf("\n");
 }
 
+static inline double get_process_weight(struct process *proc)
+{
+	double overhead = proc->overhead;
+	double rss = (proc->anon_size - proc->anon_thp)/256;
+
+	if (rss <= 0)
+		return -1;
+	else
+		return overhead/rss;
+}
+
+static void update_candidate_process(struct process *head)
+{
+	struct process *best, *curr = head;
+	double best_weight, curr_weight;
+
+	best = curr;
+	best_weight = get_process_weight(curr);
+	curr = curr->next;
+
+	while(curr) {
+		curr_weight = get_process_weight(curr);
+		if (curr_weight > best_weight) {
+			best = curr;
+			best_weight = curr_weight;
+		}
+		curr = curr->next;
+	}
+}
+
 int main(int argc, char *argv)
 {
 	FILE *fp;
@@ -155,6 +185,7 @@ int main(int argc, char *argv)
 		}
 		remove_expired_processes(&head);
 		log_process_info(head);
+		update_candidate_process(head);
 		pclose(fp);
 		sleep(3);
 		current_timestamp += 1;
