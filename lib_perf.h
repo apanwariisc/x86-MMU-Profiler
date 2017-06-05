@@ -9,6 +9,9 @@
 #include <asm/unistd.h>
 
 #define SIZE_LONG	8
+unsigned long DTLB_LOAD_MISSES_WALK_DURATION = 0;
+unsigned long DTLB_STORE_MISSES_WALK_DURATION = 0;
+unsigned long CPU_CLK_UNHALTED = 0;
 
 static long perf_event_open(struct perf_event_attr *hw_event,
 		pid_t pid, int cpu, int group_fd, unsigned long flags)
@@ -18,6 +21,25 @@ static long perf_event_open(struct perf_event_attr *hw_event,
 	ret = syscall(__NR_perf_event_open, hw_event, pid, cpu,
 						group_fd, flags);
 	return ret;
+}
+
+int init_perf_event_masks(char *usr)
+{
+	/*
+	 * These are hardcoded for mcastle1 and Ivy-Bridge machines.
+	 */
+	if (strcmp(usr, "priyanka") == 0) {
+		DTLB_LOAD_MISSES_WALK_DURATION = 0x531049;
+		DTLB_STORE_MISSES_WALK_DURATION = 0x531049;
+		CPU_CLK_UNHALTED = 0x53003C;
+		return 0;
+	} else if (strcmp(usr, "panwar") == 0) {
+		DTLB_LOAD_MISSES_WALK_DURATION = 0x538408;
+		DTLB_STORE_MISSES_WALK_DURATION = 0x530449;
+		CPU_CLK_UNHALTED = 0x53003C;
+		return 0;
+	}
+	return -1;
 }
 
 #define DTLB_LOAD_MISSES_WALK_DURATION		0x531008

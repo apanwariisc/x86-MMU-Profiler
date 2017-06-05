@@ -226,6 +226,10 @@ int main(int argc, char **argv)
 			exit(EXIT_FAILURE);
 		}
 	}
+	if(init_perf_event_masks(usr)) {
+		printf("Unknown machine type\n");
+		exit(EXIT_FAILURE);
+	}
 	//printf("user: %s interval: %d\n", usr, interval);
 	start_profiling_loop(usr, interval);
 }
