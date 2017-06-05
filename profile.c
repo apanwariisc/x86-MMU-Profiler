@@ -154,17 +154,13 @@ static void update_candidate_process(struct process *head)
 	}
 }
 
-int main(int argc, char *argv)
+static void start_profiling_loop(char *usr, int interval)
 {
 	FILE *fp;
 	struct process *head = NULL;
-	char line[LINELENGTH], user[LINELENGTH], command[LINELENGTH];
+	char line[LINELENGTH], command[LINELENGTH];
 
-	if (getlogin_r(user, LINELENGTH)) {
-		printf("Could not retrieve log in name.\n");
-		exit(EXIT_FAILURE);
-	}
-	sprintf(command, "ps -u %s", user);
+	sprintf(command, "ps -u %s", usr);
 	while(true) {
 		/* get all processes of the current user*/
 		fp = popen(command, "r");
@@ -187,7 +183,36 @@ int main(int argc, char *argv)
 		log_process_info(head);
 		update_candidate_process(head);
 		pclose(fp);
-		sleep(3);
+		sleep(interval);
 		current_timestamp += 1;
 	}
+
+}
+
+int main(int argc, char **argv)
+{
+	char *usr = NULL;
+	int c, interval = 10;
+
+	while ((c = getopt(argc, argv, "i:u:")) != -1) {
+		switch(c) {
+			case 'u':
+				usr = optarg;
+				break;
+			case 'i':
+				interval = atoi(optarg);
+				break;
+			default:
+				printf("Usage: %s [-u username] [-i interval]\n", argv[0]);
+				exit(EXIT_FAILURE);
+		}
+	}
+	if (usr == NULL) {
+		usr = malloc(sizeof(LINELENGTH));
+		if (getlogin_r(usr, LINELENGTH)) {
+			printf("Could not retrieve login name.\n");
+			exit(EXIT_FAILURE);
+		}
+	}
+	start_profiling_loop(usr, interval);
 }
