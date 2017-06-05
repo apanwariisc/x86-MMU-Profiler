@@ -6,6 +6,7 @@
  * Its current value is 300MB (based on heuristics).
  */
 #define	ELIGIBILITY_THRESHOLD	100000
+#define IS_CONSIDERABLE		3
 
 /*
  * skip		This is an optional field to ignore processes

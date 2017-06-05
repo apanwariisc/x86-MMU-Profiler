@@ -57,7 +57,7 @@ static inline int get_translation_overhead(int fd1, int fd2, int fd_load)
 	return ((load_walk_duration + store_walk_duration) * 100)/ total_cycles;
 
 failure:
-	return -1;
+	return 0;
 }
 
 /*

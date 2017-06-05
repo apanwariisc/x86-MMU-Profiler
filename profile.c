@@ -121,30 +121,40 @@ static void log_process_info(struct process *head)
 	 * Blank line to mark the end of current iteration.
 	 * This is just to ease log analysis.
 	 */
-	printf("\n");
+	//printf("\n");
 }
 
 static inline double get_process_weight(struct process *proc)
 {
+	/*
+	 * Convert rss to MB to get noticeable value for the weight.
+	 */
 	double overhead = proc->overhead;
-	double rss = (proc->anon_size - proc->anon_thp)/256;
+	double rss = (proc->anon_size - proc->anon_thp)/1024;
 
 	if (rss <= 0)
 		return -1;
 	else
-		return overhead/rss;
+		return (overhead/rss)*1024;
 }
 
 static void update_candidate_process(struct process *head)
 {
-	struct process *best, *curr = head;
-	double best_weight, curr_weight;
+	struct process *best = NULL, *curr = head;
+	double best_weight = 0, curr_weight;
 
-	best = curr;
-	best_weight = get_process_weight(curr);
-	curr = curr->next;
-
+	if (curr == NULL)
+		return;
+	/*
+	 * For a process to be eligible in this iteration, it should
+	 * not have been marked to skip recently. Its translation overhead
+	 * should also be above the minimum threshold.
+	 */
 	while(curr) {
+		if (curr->skip || curr->overhead < IS_CONSIDERABLE) {
+			curr = curr->next;
+			continue;
+		}
 		curr_weight = get_process_weight(curr);
 		if (curr_weight > best_weight) {
 			best = curr;
@@ -152,6 +162,9 @@ static void update_candidate_process(struct process *head)
 		}
 		curr = curr->next;
 	}
+	if (!best)
+		return;
+	printf("Candidate PID: %d\tWeight: %lf \n\n", best->pid, best_weight);
 }
 
 static void start_profiling_loop(char *usr, int interval)
@@ -186,7 +199,6 @@ static void start_profiling_loop(char *usr, int interval)
 		sleep(interval);
 		current_timestamp += 1;
 	}
-
 }
 
 int main(int argc, char **argv)
@@ -214,5 +226,6 @@ int main(int argc, char **argv)
 			exit(EXIT_FAILURE);
 		}
 	}
+	//printf("user: %s interval: %d\n", usr, interval);
 	start_profiling_loop(usr, interval);
 }
