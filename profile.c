@@ -113,8 +113,9 @@ static void log_process_info(struct process *head)
 	struct process *proc = head;
 
 	while (proc) {
-		printf("PID: %10d ANON: %10d THP: %10d Overhead: %10d\n",
-			proc->pid, proc->anon_size, proc->anon_thp, proc->overhead);
+		printf("PID: %6d ANON: %8d THP: %8d Overhead: %4d Cycles_Per_Walk: %f\n",
+			proc->pid, proc->anon_size, proc->anon_thp,
+			proc->overhead, proc->cycles_per_walk);
 		proc = proc->next;
 	}
 	/*
@@ -167,7 +168,7 @@ static void update_candidate_process(struct process *head)
 	printf("Candidate PID: %d\tWeight: %lf \n\n", best->pid, best_weight);
 }
 
-static void start_profiling_loop(char *usr, int interval)
+static void profile_forever(char *usr, int interval)
 {
 	FILE *fp;
 	struct process *head = NULL;
@@ -230,6 +231,5 @@ int main(int argc, char **argv)
 		printf("Unknown machine type\n");
 		exit(EXIT_FAILURE);
 	}
-	//printf("user: %s interval: %d\n", usr, interval);
-	start_profiling_loop(usr, interval);
+	profile_forever(usr, interval);
 }

@@ -12,6 +12,8 @@
 unsigned long DTLB_LOAD_MISSES_WALK_DURATION = 0;
 unsigned long DTLB_STORE_MISSES_WALK_DURATION = 0;
 unsigned long CPU_CLK_UNHALTED = 0;
+unsigned long DTLB_LOAD_MISSES_WALK_COMPLETED = 0;
+unsigned long DTLB_STORE_MISSES_WALK_COMPLETED = 0;
 
 static long perf_event_open(struct perf_event_attr *hw_event,
 		pid_t pid, int cpu, int group_fd, unsigned long flags)
@@ -29,9 +31,11 @@ int init_perf_event_masks(char *usr)
 	 * These are hardcoded for mcastle1 and Ivy-Bridge machines.
 	 */
 	if (strcmp(usr, "priyanka") == 0) {
-		DTLB_LOAD_MISSES_WALK_DURATION = 0x531049;
+		DTLB_LOAD_MISSES_WALK_DURATION = 0x531008;
 		DTLB_STORE_MISSES_WALK_DURATION = 0x531049;
 		CPU_CLK_UNHALTED = 0x53003C;
+		DTLB_LOAD_MISSES_WALK_COMPLETED = 0x530e08;
+		DTLB_STORE_MISSES_WALK_COMPLETED = 0x530e49;
 		return 0;
 	} else if (strcmp(usr, "panwar") == 0) {
 		DTLB_LOAD_MISSES_WALK_DURATION = 0x538408;
@@ -39,12 +43,10 @@ int init_perf_event_masks(char *usr)
 		CPU_CLK_UNHALTED = 0x53003C;
 		return 0;
 	}
+
 	return -1;
 }
 
-#define DTLB_LOAD_MISSES_WALK_DURATION		0x531008
-#define DTLB_STORE_MISSES_WALK_DURATION		0x531049
-#define CPU_CLK_UNHALTED			0x53003C
 
 static int set_perf_raw_event(struct perf_event_attr *attr, unsigned long event)
 {
@@ -82,35 +84,77 @@ failure:
 	return 0;
 }
 
+static inline double get_cycles_per_walk(int fd1, int fd2, int fd3, int fd4)
+{
+	unsigned long load_walk_duration = 0, store_walk_duration = 0;
+	unsigned long load_walk_completed = 0, store_walk_completed = 0;
+	int ret;
+
+	ret = read(fd1, &load_walk_duration, SIZE_LONG);
+	if (ret != SIZE_LONG)
+		goto failure;
+
+	ret = read(fd2, &store_walk_duration, SIZE_LONG);
+	if (ret != SIZE_LONG)
+		goto failure;
+
+	ret = read(fd3, &load_walk_completed, SIZE_LONG);
+	if (ret != SIZE_LONG)
+		goto failure;
+
+	ret = read(fd4, &store_walk_completed, SIZE_LONG);
+	if (ret != SIZE_LONG)
+		goto failure;
+
+	/* TODO: Check for overflow conditions */
+	return ((double)(load_walk_duration + store_walk_duration)/
+			(load_walk_completed + store_walk_completed));
+
+failure:
+	return 0.0;
+}
+
 /*
  * TODO: Error handling for the next 3 functions
  */
-static inline void reset_events(int fd_load, int fd_store, int fd_total)
+static inline void reset_events(int fd_load, int fd_store, int fd_total,
+			int fd_load_completed, int fd_store_completed)
 {
 	ioctl(fd_load, PERF_EVENT_IOC_RESET, 0);
 	ioctl(fd_store, PERF_EVENT_IOC_RESET, 0);
 	ioctl(fd_total, PERF_EVENT_IOC_RESET, 0);
+	ioctl(fd_load_completed, PERF_EVENT_IOC_RESET, 0);
+	ioctl(fd_store_completed, PERF_EVENT_IOC_RESET, 0);
 }
 
-static inline void enable_events(int fd_load, int fd_store, int fd_total)
+static inline void enable_events(int fd_load, int fd_store, int fd_total,
+			int fd_load_completed, int fd_store_completed)
 {
 	ioctl(fd_load, PERF_EVENT_IOC_ENABLE, 0);
 	ioctl(fd_store, PERF_EVENT_IOC_ENABLE, 0);
 	ioctl(fd_total, PERF_EVENT_IOC_ENABLE, 0);
+	ioctl(fd_load_completed, PERF_EVENT_IOC_ENABLE, 0);
+	ioctl(fd_store_completed, PERF_EVENT_IOC_ENABLE, 0);
 }
 
-static inline void disable_events(int fd_load, int fd_store, int fd_total)
+static inline void disable_events(int fd_load, int fd_store, int fd_total,
+			int fd_load_completed, int fd_store_completed)
 {
 	ioctl(fd_load, PERF_EVENT_IOC_DISABLE, 0);
 	ioctl(fd_store, PERF_EVENT_IOC_DISABLE, 0);
 	ioctl(fd_total, PERF_EVENT_IOC_DISABLE, 0);
+	ioctl(fd_load_completed, PERF_EVENT_IOC_DISABLE, 0);
+	ioctl(fd_store_completed, PERF_EVENT_IOC_DISABLE, 0);
 }
 
-static inline void close_files(int fd_load, int fd_store, int fd_total)
+static inline void close_files(int fd_load, int fd_store, int fd_total,
+			int fd_load_completed, int fd_store_completed)
 {
 	close(fd_load);
 	close(fd_store);
 	close(fd_total);
+	close(fd_load_completed);
+	close(fd_store_completed);
 }
 
 int update_translation_overhead(struct process *proc)
@@ -124,8 +168,10 @@ int update_translation_overhead(struct process *proc)
  * 	fd_total ---- File descriptor for pe_total
  */
 	struct perf_event_attr pe_load, pe_store, pe_total;
+	struct perf_event_attr pe_load_completed, pe_store_completed;
 	long long count, count2, count3, count4, count5;
 	int fd_load = -1, fd_store = -1, fd_total = -1;
+	int fd_load_completed = -1, fd_store_completed = -1;
 	int i, pid, overhead, sleep_period = 1;
 
 	pid = proc->pid;
@@ -133,33 +179,44 @@ int update_translation_overhead(struct process *proc)
 	set_perf_raw_event(&pe_load, DTLB_LOAD_MISSES_WALK_DURATION);
 	set_perf_raw_event(&pe_store, DTLB_STORE_MISSES_WALK_DURATION);
 	set_perf_raw_event(&pe_total, CPU_CLK_UNHALTED);
+	set_perf_raw_event(&pe_load_completed, DTLB_LOAD_MISSES_WALK_COMPLETED);
+	set_perf_raw_event(&pe_store_completed, DTLB_STORE_MISSES_WALK_COMPLETED);
 
 	/* open file descriptors for each perf event */
 	fd_load = perf_event_open(&pe_load, pid, -1, -1, 0);
 	fd_store = perf_event_open(&pe_store, pid, -1, -1, 0);
 	fd_total = perf_event_open(&pe_total, pid, -1, -1, 0);
+	fd_load_completed = perf_event_open(&pe_load_completed, pid, -1, -1, 0);
+	fd_store_completed = perf_event_open(&pe_store_completed, pid, -1, -1, 0);
 
 	/* check for error conditions */
-	if (fd_load == -1 || fd_store == -1 || fd_total == -1) {
-		printf("Failure while opening file descriptors: %d %d %d\n",
-					fd_load,fd_store,fd_total);
+	if (fd_load == -1 || fd_store == -1 || fd_total == -1 ||
+		fd_load_completed == -1 || fd_store_completed == -1) {
+		printf("Failure while opening file descriptors: %d %d %d %d %d\n",
+			fd_load,fd_store,fd_total, fd_load_completed, fd_store_completed);
 		goto failure;
 	}
 	/* reset the counter values before profiling */
-	reset_events(fd_load, fd_store, fd_total);
-	enable_events(fd_load, fd_store, fd_total);
+	reset_events(fd_load, fd_store, fd_total, fd_load_completed,
+					fd_store_completed);
+	enable_events(fd_load, fd_store, fd_total, fd_store_completed,
+					fd_store_completed);
 
 	/* sleep till the sampling period completes */
 	sleep(sleep_period);
 
 	/* disable profiling */
-	disable_events(fd_load, fd_store, fd_total);
+	disable_events(fd_load, fd_store, fd_total, fd_load_completed,
+					fd_store_completed);
 
 	/* get the translation overhead from the measured counters */
 	proc->overhead = get_translation_overhead(fd_load, fd_store, fd_total);
-	close_files(fd_load, fd_store, fd_total);
+	proc->cycles_per_walk = get_cycles_per_walk(fd_load, fd_store,
+				fd_load_completed, fd_store_completed);
+	close_files(fd_load, fd_store, fd_total, fd_load_completed, fd_store_completed);
 	return 0;
 
 failure:
+	printf("Error while profiling %d\n", pid);
 	return -1;
 }

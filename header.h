@@ -26,5 +26,6 @@ struct process {
 	unsigned int anon_thp;
 	unsigned int overhead;
 	unsigned long timestamp;
+	double cycles_per_walk;
 	struct process *next;
 };
