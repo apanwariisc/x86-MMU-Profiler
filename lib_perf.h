@@ -71,25 +71,26 @@ static int set_perf_hw_event_cycles(struct perf_event_attr *attr)
 }
 
 static inline int
-get_translation_overhead(int fd1, int fd2, int fd_load, int fd_cycles)
+get_translation_overhead(int fd_load_walk_duration, int fd_store_walk_duration,
+			int fd_unhalted_cycles, int fd_total_cycles)
 {
 	unsigned long load_walk_duration = 0, store_walk_duration = 0;
 	unsigned long unhalted_cycles = 0, total_cycles;
 	int ret;
 
-	ret = read(fd1, &load_walk_duration, SIZE_LONG);
+	ret = read(fd_load_walk_duration, &load_walk_duration, SIZE_LONG);
 	if (ret != SIZE_LONG)
 		goto failure;
 
-	ret = read(fd2, &store_walk_duration, SIZE_LONG);
+	ret = read(fd_store_walk_duration, &store_walk_duration, SIZE_LONG);
 	if (ret != SIZE_LONG)
 		goto failure;
 
-	ret = read(fd_load, &unhalted_cycles, SIZE_LONG);
+	ret = read(fd_unhalted_cycles, &unhalted_cycles, SIZE_LONG);
 	if (ret != SIZE_LONG || unhalted_cycles == 0)
 		goto failure;
 
-	ret = read(fd_cycles, &total_cycles, SIZE_LONG);
+	ret = read(fd_total_cycles, &total_cycles, SIZE_LONG);
 	if (ret != SIZE_LONG || total_cycles == 0)
 		goto failure;
 
@@ -100,25 +101,27 @@ failure:
 	return 0;
 }
 
-static inline double get_cycles_per_walk(int fd1, int fd2, int fd3, int fd4)
+static inline double
+get_cycles_per_walk(int fd_load_walk_duration, int fd_store_walk_duration,
+		int fd_load_walk_completed, int fd_store_walk_completed)
 {
 	unsigned long load_walk_duration = 0, store_walk_duration = 0;
 	unsigned long load_walk_completed = 0, store_walk_completed = 0;
 	int ret;
 
-	ret = read(fd1, &load_walk_duration, SIZE_LONG);
+	ret = read(fd_load_walk_duration, &load_walk_duration, SIZE_LONG);
 	if (ret != SIZE_LONG)
 		goto failure;
 
-	ret = read(fd2, &store_walk_duration, SIZE_LONG);
+	ret = read(fd_store_walk_duration, &store_walk_duration, SIZE_LONG);
 	if (ret != SIZE_LONG)
 		goto failure;
 
-	ret = read(fd3, &load_walk_completed, SIZE_LONG);
+	ret = read(fd_load_walk_completed, &load_walk_completed, SIZE_LONG);
 	if (ret != SIZE_LONG)
 		goto failure;
 
-	ret = read(fd4, &store_walk_completed, SIZE_LONG);
+	ret = read(fd_store_walk_completed, &store_walk_completed, SIZE_LONG);
 	if (ret != SIZE_LONG)
 		goto failure;
 
@@ -127,7 +130,7 @@ static inline double get_cycles_per_walk(int fd1, int fd2, int fd3, int fd4)
 			(load_walk_completed + store_walk_completed));
 
 failure:
-	return 0.0;
+	return 0;
 }
 
 /*
