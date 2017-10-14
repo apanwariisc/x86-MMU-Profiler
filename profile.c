@@ -1,7 +1,10 @@
 #include <stdbool.h>
+#include <sys/syscall.h>
 #include "header.h"
 #include "lib_perf.h"
 #include "lib_thp.h"
+
+#define max(a, b) (((a) < (b)) ? (b) : (a))
 
 unsigned long current_timestamp = 0;
 
@@ -51,6 +54,7 @@ void add_pid_to_list(int pid, struct process **head) {
 	 */
 	if (proc) {
 		update_process_stats(pid, proc);
+		syscall(325, pid, max(0, (int)proc->overhead - 2));
 		return;
 	}
 
@@ -69,6 +73,8 @@ allocate_process:
 
 	new->next = *head;
 	*head = new;
+	syscall(325, pid, 1000);
+	syscall(325, pid, max(0, (int)new->overhead - 2));
 }
 
 /*
@@ -113,9 +119,9 @@ static void log_process_info(struct process *head)
 	struct process *proc = head;
 
 	while (proc) {
-		printf("PID: %6d ANON: %8d THP: %8d Overhead: %4d Cycles_Per_Walk: %f\n",
-			proc->pid, proc->anon_size, proc->anon_thp,
-			proc->overhead, proc->cycles_per_walk);
+		printf("PID: %6d THP_Required: %8d THP: %8d Overhead: %4d\n",
+			proc->pid, proc->anon_size/2048, proc->anon_thp/2048,
+			(int)proc->overhead);
 		proc = proc->next;
 	}
 	/*
@@ -165,7 +171,9 @@ static void update_candidate_process(struct process *head)
 	}
 	if (!best)
 		return;
+#if 0
 	printf("Candidate PID: %d\tWeight: %lf \n\n", best->pid, best_weight);
+#endif
 }
 
 static void profile_forever(char *usr, int interval)
@@ -195,7 +203,9 @@ static void profile_forever(char *usr, int interval)
 		}
 		remove_expired_processes(&head);
 		log_process_info(head);
+/*
 		update_candidate_process(head);
+*/
 		pclose(fp);
 		sleep(interval);
 		current_timestamp += 1;

@@ -5,8 +5,8 @@
  * it must have anon memory size of at least this value.
  * Its current value is 300MB (based on heuristics).
  */
-#define	ELIGIBILITY_THRESHOLD	100000
-#define IS_CONSIDERABLE		3
+#define	ELIGIBILITY_THRESHOLD	10000
+#define	IS_CONSIDERABLE		1
 
 /*
  * skip		This is an optional field to ignore processes
@@ -24,7 +24,7 @@ struct process {
 	int pid;
 	unsigned int anon_size;
 	unsigned int anon_thp;
-	unsigned int overhead;
+	double overhead;
 	unsigned long timestamp;
 	double cycles_per_walk;
 	struct process *next;

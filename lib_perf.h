@@ -95,7 +95,7 @@ get_translation_overhead(int fd_load_walk_duration, int fd_store_walk_duration,
 		goto failure;
 
 	/* TODO: Check for overflow conditions */
-	return ((load_walk_duration + store_walk_duration) * 100)/ unhalted_cycles;
+	return ((load_walk_duration + store_walk_duration) * 100)/ total_cycles;
 
 failure:
 	return 0;
@@ -241,8 +241,13 @@ int update_translation_overhead(struct process *proc)
 					fd_store_completed, fd_cycles);
 
 	/* get the translation overhead from the measured counters */
+	/*
 	proc->overhead = get_translation_overhead(fd_load, fd_store,
 					fd_total,fd_cycles);
+	*/
+	proc->overhead = (0.6 * proc->overhead +
+			0.4 * get_translation_overhead(fd_load, fd_store,fd_total,fd_cycles));
+
 	proc->cycles_per_walk = get_cycles_per_walk(fd_load, fd_store,
 				fd_load_completed, fd_store_completed);
 	close_files(fd_load, fd_store, fd_total, fd_load_completed,
