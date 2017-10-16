@@ -222,7 +222,7 @@ int update_translation_overhead(struct process *proc)
 	if (fd_load == -1 || fd_store == -1 || fd_total == -1 ||
 		fd_load_completed == -1 || fd_store_completed == -1 ||
 		fd_cycles == -1) {
-		printf("Failure while opening descriptors: %d %d %d %d %d\n",
+		printf("Failure while opening descriptors: %d %d %d %d %d %d\n",
 			fd_load,fd_store,fd_total, fd_load_completed,
 			fd_store_completed, fd_cycles);
 		goto failure;
