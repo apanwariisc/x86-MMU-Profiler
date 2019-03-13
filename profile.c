@@ -54,7 +54,7 @@ void add_pid_to_list(int pid, struct process **head) {
 	 */
 	if (proc) {
 		update_process_stats(pid, proc);
-		syscall(325, pid, max(0, (int)proc->overhead - 2));
+		syscall(325, pid, max(0, (int)proc->overhead));
 		return;
 	}
 
@@ -74,7 +74,7 @@ allocate_process:
 	new->next = *head;
 	*head = new;
 	syscall(325, pid, 1000);
-	syscall(325, pid, max(0, (int)new->overhead - 2));
+	syscall(325, pid, max(0, (int)new->overhead) - 3);
 }
 
 /*

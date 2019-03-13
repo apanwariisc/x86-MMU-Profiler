@@ -1,11 +1,11 @@
 #define FILENAMELENGTH		50
-#define LINELENGTH		200
+#define LINELENGTH		2000
 #define PAGE_SIZE		4096
 /* For a process to be eligible for THP considerations,
  * it must have anon memory size of at least this value.
  * Its current value is 300MB (based on heuristics).
  */
-#define	ELIGIBILITY_THRESHOLD	10000
+#define	ELIGIBILITY_THRESHOLD	1000000
 #define	IS_CONSIDERABLE		1
 
 /*

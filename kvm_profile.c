@@ -16,7 +16,6 @@ unsigned long current_timestamp = 0;
 static bool update_process_stats(int pid, struct process *proc)
 {
 	int ret;
-
 	proc->pid = pid;
 	proc->timestamp = current_timestamp;
 	ret = update_thp_usage(proc);
@@ -183,7 +182,7 @@ static void profile_forever(char *usr, int interval)
 	char line[LINELENGTH], command[LINELENGTH], tmp[LINELENGTH];
 
 	//sprintf(command, "ps aux | grep 'priyanka\\|redis-server\\|root'");
-	sprintf(command, "ps aux | grep 'priyanka\\|redis-server\\|mongod\\|cassandra\\|mysql'");
+	sprintf(command, "ps -A | grep qemu");
 	while(true) {
 		/* get all processes of the current user*/
 		fp = popen(command, "r");
@@ -191,15 +190,13 @@ static void profile_forever(char *usr, int interval)
 			printf("Could not get process list\n");
 			exit(EXIT_FAILURE);
 		}
-		//fgets(line, 1900, fp);
 		while (fgets(line, 1900, fp) != NULL) {
 			int pid;
 
 			/* Ignore background deamons */
 			if (strstr(line, "sshd") || strstr(line, "bash"))
 				continue;
-
-			sscanf(line, "%s %d", tmp, &pid);
+			sscanf(line, "%d %s", &pid, tmp);
 			//printf("%s %d\n", tmp, pid);
 			add_pid_to_list(pid, &head);
 		}

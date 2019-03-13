@@ -30,7 +30,7 @@ int init_perf_event_masks(char *usr)
 	/*
 	 * These are hardcoded for mcastle1 and Ivy-Bridge machines.
 	 */
-	if (strcmp(usr, "priyanka") == 0) {
+	if (strcmp(usr, "ashishpanwar") == 0) {
 		DTLB_LOAD_MISSES_WALK_DURATION = 0x531008;
 		DTLB_STORE_MISSES_WALK_DURATION = 0x531049;
 		CPU_CLK_UNHALTED = 0x53003C;
@@ -95,7 +95,7 @@ get_translation_overhead(int fd_load_walk_duration, int fd_store_walk_duration,
 		goto failure;
 
 	/* TODO: Check for overflow conditions */
-	return ((load_walk_duration + store_walk_duration) * 100)/ total_cycles;
+	return ((load_walk_duration + store_walk_duration) * 100)/ unhalted_cycles;
 
 failure:
 	return 0;
@@ -245,8 +245,9 @@ int update_translation_overhead(struct process *proc)
 	proc->overhead = get_translation_overhead(fd_load, fd_store,
 					fd_total,fd_cycles);
 	*/
-	proc->overhead = (0.6 * proc->overhead +
-			0.4 * get_translation_overhead(fd_load, fd_store,fd_total,fd_cycles));
+	//proc->overhead = (0.6 * proc->overhead +
+	//		0.4 * get_translation_overhead(fd_load, fd_store,fd_total,fd_cycles));
+	proc->overhead = get_translation_overhead(fd_load, fd_store,fd_total,fd_cycles);
 
 	proc->cycles_per_walk = get_cycles_per_walk(fd_load, fd_store,
 				fd_load_completed, fd_store_completed);
