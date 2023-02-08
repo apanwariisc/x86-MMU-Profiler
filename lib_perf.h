@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <string.h>
 #include <asm/unistd.h>
+#include <perfmon/pfmlib.h>
 
 #define SIZE_LONG	8
 unsigned long DTLB_LOAD_MISSES_WALK_DURATION = 0;
@@ -25,26 +26,43 @@ static long perf_event_open(struct perf_event_attr *hw_event,
 	return ret;
 }
 
-int init_perf_event_masks(char *usr)
-{
-	/*
-	 * These are hardcoded for mcastle1 and Ivy-Bridge machines.
-	 */
-	if (strcmp(usr, "ashishpanwar") == 0) {
-		DTLB_LOAD_MISSES_WALK_DURATION = 0x531008;
-		DTLB_STORE_MISSES_WALK_DURATION = 0x531049;
-		CPU_CLK_UNHALTED = 0x53003C;
-		DTLB_LOAD_MISSES_WALK_COMPLETED = 0x530e08;
-		DTLB_STORE_MISSES_WALK_COMPLETED = 0x530e49;
-		return 0;
-	} else if (strcmp(usr, "panwar") == 0) {
-		DTLB_LOAD_MISSES_WALK_DURATION = 0x538408;
-		DTLB_STORE_MISSES_WALK_DURATION = 0x530449;
-		CPU_CLK_UNHALTED = 0x53003C;
+static size_t get_raw_code(const char *event_name) {
+	pfm_pmu_encode_arg_t pmu_encode_arg;
+	int ret;
+	memset(&pmu_encode_arg, 0, sizeof(pmu_encode_arg));
+
+	ret = pfm_get_os_event_encoding(event_name, PFM_PLM0|PFM_PLM3, PFM_OS_NONE, &pmu_encode_arg);
+	if (ret != PFM_SUCCESS) {
+		fprintf(stderr, "cannot encode event %s: %s\n", event_name, pfm_strerror(ret));
 		return 0;
 	}
 
-	return -1;
+	if (pmu_encode_arg.count == 0) {
+		fprintf(stderr, "no raw codes available for event %s\n", event_name);
+		return 0;
+	}
+	size_t raw_code = pmu_encode_arg.codes[0];
+	free(pmu_encode_arg.codes);
+	return raw_code;
+}
+
+int init_perf_event_masks(char *usr)
+{
+	int ret = pfm_initialize();
+	if (ret != PFM_SUCCESS) {
+		fprintf(stderr, "cannot initialize libpfm: %s\n", pfm_strerror(ret));
+		return -1;
+	}
+
+	DTLB_LOAD_MISSES_WALK_DURATION = get_raw_code("DTLB_LOAD_MISSES:WALK_DURATION");
+	DTLB_STORE_MISSES_WALK_DURATION = get_raw_code("DTLB_STORE_MISSES:WALK_DURATION");
+	CPU_CLK_UNHALTED = get_raw_code("CPU_CLK_UNHALTED");
+	DTLB_LOAD_MISSES_WALK_COMPLETED = get_raw_code("DTLB_LOAD_MISSES:WALK_COMPLETED");
+	DTLB_STORE_MISSES_WALK_COMPLETED = get_raw_code("DTLB_STORE_MISSES:WALK_COMPLETED");
+
+	pfm_terminate();
+
+	return 0;
 }
 
 

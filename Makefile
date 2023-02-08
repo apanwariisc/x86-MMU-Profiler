@@ -1,12 +1,11 @@
-all: profile global_profile kvm_profile
+all: profile global_profile
+
+CC=gcc
+LDLIBS=-lpfm
 
 profile: profile.c
-	gcc -o profile profile.c
-	gcc -o global_profile global_profile.c
-	gcc -o kvm_profile kvm_profile.c
-
+global_profile: global_profile.c
 
 clean:
 	@rm -f profile
 	@rm -f global_profile
-	@rm -f kvm_profile
