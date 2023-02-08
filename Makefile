@@ -1,6 +1,7 @@
 all: profile global_profile
 
 CC=gcc
+LDLIBS=-lpfm
 
 profile: profile.c
 global_profile: global_profile.c
